@@ -1,2 +1,4 @@
 flask
 flasgger
+flask-cors
+mysql-connector-python

@@ -3,8 +3,15 @@ from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Pacientes API", description="Microservicio de gestión de pacientes y citas médicas", version="1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # puedes limitarlo a ["http://<tu_dominio>"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---------- Configuración BD ----------
 DB_CONFIG = {
