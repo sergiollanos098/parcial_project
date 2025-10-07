@@ -7,12 +7,19 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# --- Swagger Config ---
-app.config['SWAGGER'] = {
-    'title': 'Usuarios API (con direcciones) - CRUD completo',
-    'uiversion': 3
+# --- Swagger Template ---
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "Usuarios API (con direcciones) - CRUD completo",
+        "description": "API REST para manejar usuarios y direcciones con relación 1:N",
+        "version": "1.0.0"
+    },
+    "basePath": "/",  # Base URL
+    "schemes": ["http"],
+    "securityDefinitions": {},
 }
-Swagger(app)
+Swagger(app, template=swagger_template)
 
 # --- MySQL Config (desde variables de entorno) ---
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
@@ -43,7 +50,38 @@ def close_connection(exception):
 # ---------- USERS ----------
 @app.route('/users', methods=['GET'])
 def get_users():
-    """Obtener lista de usuarios con sus direcciones"""
+    """
+    Obtener lista de usuarios con sus direcciones
+    ---
+    parameters:
+      - name: limit
+        in: query
+        type: integer
+        required: false
+        description: Número máximo de usuarios (default=20)
+    responses:
+      200:
+        description: Lista de usuarios
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              email:
+                type: string
+              addresses:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: integer}
+                    city: {type: string}
+                    street: {type: string}
+    """
     limit = int(request.args.get('limit', 20))
     db = get_db()
     cur = db.cursor(dictionary=True)
@@ -58,7 +96,21 @@ def get_users():
 
 @app.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
-    """Obtener un usuario con sus direcciones"""
+    """
+    Obtener un usuario por ID
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+        description: ID del usuario
+    responses:
+      200:
+        description: Usuario encontrado
+      404:
+        description: Usuario no encontrado
+    """
     db = get_db()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT id,name,email FROM users WHERE id=%s", (user_id,))
@@ -71,7 +123,24 @@ def get_user(user_id):
 
 @app.route('/users', methods=['POST'])
 def add_user():
-    """Crear un nuevo usuario"""
+    """
+    Crear un nuevo usuario
+    ---
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          required: [name, email]
+          properties:
+            name: {type: string}
+            email: {type: string}
+    responses:
+      201:
+        description: Usuario creado
+      400:
+        description: Datos inválidos
+    """
     data = request.get_json() or {}
     if not data.get('name') or not data.get('email'):
         return jsonify({"error": "name and email required"}), 400
@@ -83,7 +152,27 @@ def add_user():
 
 @app.route('/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
-    """Actualizar usuario"""
+    """
+    Actualizar usuario
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            name: {type: string}
+            email: {type: string}
+    responses:
+      200:
+        description: Usuario actualizado
+      404:
+        description: Usuario no encontrado
+    """
     data = request.get_json() or {}
     if not data:
         return jsonify({"error": "body required"}), 400
@@ -97,7 +186,20 @@ def update_user(user_id):
 
 @app.route('/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
-    """Eliminar usuario y sus direcciones"""
+    """
+    Eliminar usuario y sus direcciones
+    ---
+    parameters:
+      - name: user_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Usuario eliminado
+      404:
+        description: Usuario no encontrado
+    """
     db = get_db()
     cur = db.cursor()
     cur.execute("DELETE FROM addresses WHERE user_id=%s", (user_id,))
@@ -110,7 +212,26 @@ def delete_user(user_id):
 # --------------- ADDRESSES CRUD ---------------
 @app.route('/addresses', methods=['GET'])
 def list_addresses():
-    """Listar direcciones"""
+    """
+    Listar direcciones
+    ---
+    parameters:
+      - name: user_id
+        in: query
+        type: integer
+        required: false
+      - name: limit
+        in: query
+        type: integer
+        default: 50
+      - name: offset
+        in: query
+        type: integer
+        default: 0
+    responses:
+      200:
+        description: Lista de direcciones
+    """
     user_id = request.args.get('user_id', type=int)
     limit = request.args.get('limit', default=50, type=int)
     offset = request.args.get('offset', default=0, type=int)
@@ -124,7 +245,20 @@ def list_addresses():
 
 @app.route('/addresses/<int:address_id>', methods=['GET'])
 def get_address(address_id):
-    """Obtener dirección por id"""
+    """
+    Obtener dirección por ID
+    ---
+    parameters:
+      - name: address_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Dirección encontrada
+      404:
+        description: Dirección no encontrada
+    """
     db = get_db()
     cur = db.cursor(dictionary=True)
     cur.execute("SELECT id,user_id,city,street FROM addresses WHERE id=%s", (address_id,))
@@ -135,7 +269,25 @@ def get_address(address_id):
 
 @app.route('/addresses', methods=['POST'])
 def create_address():
-    """Crear dirección"""
+    """
+    Crear dirección
+    ---
+    parameters:
+      - in: body
+        name: body
+        schema:
+          type: object
+          required: [user_id]
+          properties:
+            user_id: {type: integer}
+            city: {type: string}
+            street: {type: string}
+    responses:
+      201:
+        description: Dirección creada
+      400:
+        description: Error en datos
+    """
     data = request.get_json() or {}
     if not data.get('user_id'):
         return jsonify({"error": "user_id required"}), 400
@@ -152,7 +304,27 @@ def create_address():
 
 @app.route('/addresses/<int:address_id>', methods=['PUT'])
 def update_address(address_id):
-    """Actualizar dirección"""
+    """
+    Actualizar dirección
+    ---
+    parameters:
+      - name: address_id
+        in: path
+        type: integer
+        required: true
+      - in: body
+        name: body
+        schema:
+          type: object
+          properties:
+            city: {type: string}
+            street: {type: string}
+    responses:
+      200:
+        description: Dirección actualizada
+      404:
+        description: Dirección no encontrada
+    """
     data = request.get_json() or {}
     if not data:
         return jsonify({"error": "body required"}), 400
@@ -167,7 +339,20 @@ def update_address(address_id):
 
 @app.route('/addresses/<int:address_id>', methods=['DELETE'])
 def delete_address(address_id):
-    """Eliminar dirección"""
+    """
+    Eliminar dirección
+    ---
+    parameters:
+      - name: address_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Dirección eliminada
+      404:
+        description: Dirección no encontrada
+    """
     db = get_db()
     cur = db.cursor()
     cur.execute("DELETE FROM addresses WHERE id=%s", (address_id,))
