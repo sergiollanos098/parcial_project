@@ -1,0 +1,56 @@
+services:
+  ms1_flask:
+    build: ./microservices/ms1_flask
+    container_name: ms1_flask
+    ports:
+      - "5001:5001"
+    environment:
+      - MYSQL_HOST=172.31.24.154       # IP privada de MV de BD
+      - MYSQL_USER=root
+      - MYSQL_PASS=tu_password
+      - MYSQL_DB=db_usuarios
+      - MYSQL_PORT=3307
+
+  ms2_fastapi:
+    build: ./microservices/ms2_fastapi
+    container_name: ms2_fastapi
+    ports:
+      - "5002:5002"
+    environment:
+      - PG_HOST=172.31.24.154          # IP privada de MV de BD
+      - PG_USER=postgres
+      - PG_PASS=tu_password
+      - PG_DB=medical_db
+      - PG_PORT=5432
+
+  ms3_express:
+    build: ./microservices/ms3_express
+    container_name: ms3_express
+    ports:
+      - "5003:5003"
+    environment:
+      - MONGO_URI=mongodb://172.31.24.154:27017/clinicdb
+
+  ms4_consumer:
+    build: ./microservices/ms4_consumer
+    container_name: ms4_consumer
+    ports:
+      - "5004:5004"
+    environment:
+      - MS1=http://ms1_flask:5001
+      - MS2=http://ms2_fastapi:5002
+      - MS3=http://ms3_express:5003
+    depends_on:
+      - ms1_flask
+      - ms2_fastapi
+      - ms3_express
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ms4_consumer
